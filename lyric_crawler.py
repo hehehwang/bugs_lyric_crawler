@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Bugs lyric crawler 1.0 by HeHeHwang
+Bugs lyric crawler 1.0a by HeHeHwang
 update: 2018.01.06
 """
 import csv
 import os
+import sys
 import time
 from collections import Counter
 from operator import itemgetter
@@ -17,7 +18,7 @@ from konlpy.tag import Hannanum
 from wordcloud import WordCloud, ImageColorGenerator
 
 ### Golbal Variables
-use_mask = False
+mask_enable = False
 
 ### Function Definition
 def timestamp():
@@ -43,11 +44,11 @@ def output_csv_more_than(l, n, suffix = ''):
     output_file_csv.close()
 
 def output_wordcloud(word_dic, suffix = ''):
-    if use_mask:
+    if mask_enable:
         maskk = np.array(Image.open('./mask/mask.png'))
         maskk_color = ImageColorGenerator(maskk)
         wc = WordCloud(font_path='c:/Windows/Fonts/NanumMyeongjo.ttf',
-                       background_color='lightgrey',
+                       background_color='white',
                        mask = maskk).generate_from_frequencies(word_dic)
         tp = timestamp()
         wc.to_file('./output/data_out_' + tp + suffix + '_origin' +'.png')
@@ -60,14 +61,68 @@ def output_wordcloud(word_dic, suffix = ''):
         tp = timestamp()
         wc.to_file('./output/data_out_' + tp + suffix +'.png')
 
+### End of Functions
+
+### Importing Settings from setting.ini
+"""
+setting.ini configuration:
+track_num_limit
+mask_enable
+- mask_filename
+- wordcloud_bgcolor
+- output_korean_only
+"""
+print('Checking settings.ini...')
+time.sleep(1)
+with open('settings.ini', 'r', encoding='utf-8') as f:
+    doc = f.readlines()
+    for d in doc:
+        d = d.strip()
+        l = d.split('=')
+        if l[0].strip() == 'track_num_limit':
+            track_num_limit = int(l[1].strip())
+            print('Number of tracks to be collected: ' + str(track_num_limit))
+        elif l[0].strip() == 'mask_enable':
+            mask_enable = bool(l[1].strip())
+            print('Use Mask Image or not: ' + str(mask_enable))
+        else:
+            continue
+print('...Done')
+print('\n'+'='*40+'\n')
+
+time.sleep(2)
+
 ### Directory & File check
+print('Checking File and Directories')
 if not os.path.exists('./output/'):
+    print('Error: There is no output directory!')
+    time.sleep(1)
     os.mkdir('./output/')
-if os.path.exists('./mask/mask.png'):
-    use_mask = True
+    print("...So I've made one JUST FOR YOU!!")
+    time.sleep(1)
+print('Output Directory - Checked\n')
 
+print('Checking Mask Settings')
+if mask_enable:
+    if not os.path.exists('./mask/mask.png'):
+        print('WARNING: There is no mask File(or Directory)!\nShould I run without mask file? (Y/N)')
+        reply = input()
+        if reply == 'Y' or reply == 'y':
+            mask_enable = False
+            print('...OK!')
+        else:
+            print('Goodbye!')
+            time.sleep(3)
+            sys.exit()
+    else:
+        print('Mask File - Checked\n')
+
+print('..Done. All is well!\n\n')
+
+time.sleep(1)
+
+print('Now Scrapping Informations from Bugs.co.kr...')
 ### Scrapping
-
 ## html scrap - 1. track list scrapping from bugs
 html_chart = urlopen("https://music.bugs.co.kr/chart")
 bsobj_chart = bs4.BeautifulSoup(html_chart, "html.parser")
@@ -138,4 +193,5 @@ output_wordcloud(d_ko, suffix='_ko')
 with open('./output/lyric_' + timestamp() + '.txt', 'w', encoding='utf-8') as f:
     f.write(lyrics)
 
+print('ALL WORK IS DONE!')
 _ = input()
