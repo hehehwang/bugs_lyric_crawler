@@ -18,9 +18,10 @@ from konlpy.tag import Hannanum
 from wordcloud import WordCloud, ImageColorGenerator
 
 ### Initialize Golbal Variables
+wc_bgcolor = 'white'
 wc_mask_enable = False
 wc_mask_filename = 'mask.png'
-
+wc_mask_recolor = True
 ### Function Definition
 def Timestamp():
     nnnn = time.localtime()
@@ -45,21 +46,23 @@ def Output_wc(word_dic, suffix = ''):
         maskk = np.array(Image.open('./mask/' + wc_mask_filename))
         maskk_color = ImageColorGenerator(maskk)
         wc = WordCloud(font_path='c:/Windows/Fonts/NanumMyeongjo.ttf',
-                       background_color='white',
+                       background_color=wc_bgcolor,
                        mask = maskk).generate_from_frequencies(word_dic)
         tp = Timestamp()
         wc.to_file('./output/data_out_' + tp + suffix + '_origin.' + mask_ext)
-        wc.recolor(color_func=maskk_color)
-        wc.to_file('./output/data_out_' + tp + suffix + '_colored.' + mask_ext)
+        if wc_mask_recolor:
+            wc.recolor(color_func=maskk_color)
+            wc.to_file('./output/data_out_' + tp + suffix + '_colored.' + mask_ext)
     else:
         wc = WordCloud(font_path='c:/Windows/Fonts/malgun.ttf',
+                       background_color=wc_bgcolor,
                        width=800,
                        height=400).generate_from_frequencies(word_dic)
         tp = Timestamp()
         wc.to_file('./output/data_out_' + tp + suffix +'.png')
 
 def Str_to_bool(ss):
-    if ss in ['T', 't']:
+    if ss in ['T', 't', 'True', 'true', '참']:
         return True
     else:
         return False
@@ -76,10 +79,10 @@ setting.ini configuration:
 track_num_limit = [int]
 
 - output config (csv, wordcloud, txt):
-_output_csv = [bool]
-_output_wc = [bool]
-_output_txt = [bool]
-_output_ko_only = [bool]
+output_csv = [bool]
+output_wc = [bool]
+output_txt = [bool]
+output_ko_only = [bool]
 
 - csv config
 csv_min = [int]
@@ -117,10 +120,11 @@ with open('settings.ini', 'r', encoding='utf-8') as f:
             elif attr == 'output_txt':
                 output_txt = Str_to_bool(l[1].strip())
 
+            elif attr == 'wc_bgcolor':
+                wc_bgcolor = l[1].strip()
             elif attr == 'wc_mask_enable':
                 wc_mask_enable = Str_to_bool(l[1].strip())
                 print('Use Mask Image: ' + str(wc_mask_enable))
-
             elif attr == 'wc_mask_filename':
                 if l[1].strip().split('.')[-1] in ['jpg', 'jpeg', 'png']:
                     wc_mask_filename = l[1].strip()
@@ -129,6 +133,8 @@ with open('settings.ini', 'r', encoding='utf-8') as f:
                     print('Inappropriate Mask Image Extension!')
                     time.sleep(3)
                     sys.exit()
+            elif attr == 'wc_mask_recolor':
+                wc_mask_recolor = Str_to_bool(l[1].strip())
 
             else:
                 continue
