@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Bugs lyric crawler 1.0b by HeHeHwang
-update: 2018.01.06
+Bugs lyric crawler 0.7 by HeHeHwang
+update: 2018.01.07
 """
+import configparser as cp
 import csv
 import os
 import sys
 import time
-import configparser as cp
 from collections import Counter
 from operator import itemgetter
 from urllib.request import urlopen
@@ -36,35 +36,40 @@ def Output_csv_more_than(ll, n, suffix = ''):
             wr_csv.writerow(idx)
     output_file_csv.close()
 
-def Output_wc(word_dic, suffix = '',bgcolor='white', mask_enable=True ,mask_filename='', mask_recolor=True):
-    if mask_enable:
-        mask_ext = mask_filename.split('.')[-1]
-        maskk = np.array(Image.open('./mask/' + mask_filename))
+def Output_wc(word_dic, suffix = ''):
+    # Variable Set-ups
+    v = {}
+    for items in ['wc_bgcolor', 'wc_mask_filename']:
+        v[items] = cfg.get('Wordcloud', items)
+    for items in ['wc_mask_origin', 'wc_mask_recolor']:
+        v[items] = cfg.getboolean('Wordcloud', items)
+
+    route = './output/data_out_' + Timestamp() + suffix
+
+    if v['wc_mask_filename']:
+        mask_ext = v['wc_mask_filename'].split('.')[-1]
+        maskk = np.array(Image.open('./mask/' + v['wc_mask_filename']))
         maskk_color = ImageColorGenerator(maskk)
         wc = WordCloud(font_path='c:/Windows/Fonts/NanumMyeongjo.ttf',
-                       background_color=bgcolor,
+                       min_font_size=6,
+                       max_words=150,
+                       background_color=v['wc_bgcolor'],
                        mask = maskk).generate_from_frequencies(word_dic)
-        tp = Timestamp()
-        wc.to_file('./output/data_out_' + tp + suffix + '_origin.' + mask_ext)
-        if mask_recolor:
+        if v['wc_mask_origin']:
+            wc.to_file(route + '_origin.' + mask_ext)
+        if v['wc_mask_recolor']:
             wc.recolor(color_func=maskk_color)
-            wc.to_file('./output/data_out_' + tp + suffix + '_colored.' + mask_ext)
+            wc.to_file(route + '_colored.' + mask_ext)
     else:
         wc = WordCloud(font_path='c:/Windows/Fonts/malgun.ttf',
-                       background_color=bgcolor,
+                       min_font_size=6,
+                       background_color=v['wc_bgcolor'],
                        width=800,
                        height=400).generate_from_frequencies(word_dic)
-        tp = Timestamp()
-        wc.to_file('./output/data_out_' + tp + suffix +'.png')
+        wc.to_file(route + '.png')
 
-def Str_to_bool(ss):
-    if ss in ['T', 't', 'True', 'true', '참']:
-        return True
-    else:
-        return False
+
 ### End of Functions
-
-### Initialize Default Variables
 
 ### Importing Settings from setting.ini
 """
@@ -85,28 +90,26 @@ csv_min = [int]
 wc_mask_enable
 wc_mask_filename
 wc_mask_recolor
-_wc_bgcolor
+wc_bgcolor
 """
 print('Checking settings.ini...')
 time.sleep(1)
-
 cfg = cp.ConfigParser()
 cfg.read('settings.ini')
+
 track_num_limit = cfg.getint('Parsing', 'track_num_limit')
 if track_num_limit == 0:
     track_num_limit = None
-categ = 'Output Files'
-output_ko_only, output_csv, output_wc, output_txt = cfg.getboolean(categ, 'output_ko_only'),\
-                                                    cfg.getboolean(categ, 'output_csv'),\
-                                                    cfg.getboolean(categ, 'output_wc'),\
-                                                    cfg.getboolean(categ, 'output_txt')
-csv_min = cfg.getint('csv','csv_min')
-categ = 'Wordcloud'
-wc_bgcolor, wc_mask_enable, wc_mask_filename, wc_mask_recolor = cfg.get(categ, 'wc_bgcolor'), \
-                                                                cfg.getboolean(categ, 'wc_mask_enable'), \
-                                                                cfg.get(categ, 'wc_mask_filename'), \
-                                                                cfg.getboolean(categ, 'wc_mask_recolor')
 
+_ = 'Output Files'
+output_ko_only= cfg.getboolean(_, 'output_ko_only')
+output_csv = cfg.getboolean(_, 'output_csv')
+output_wc = cfg.getboolean(_, 'output_wc')
+output_txt = cfg.getboolean(_, 'output_txt')
+
+csv_min = cfg.getint('csv','csv_min')
+
+div = '\n'+'='*40+'\n'
 # with open('settings.ini', 'r', encoding='utf-8') as f:
 #     doc = f.readlines()
 #     for d in doc:
@@ -152,15 +155,15 @@ wc_bgcolor, wc_mask_enable, wc_mask_filename, wc_mask_recolor = cfg.get(categ, '
 #                 continue
 #         else:
 #             continue
-print('...Done')
-print('\n'+'='*40+'\n')
+print('...Done!')
+print(div)
 
 time.sleep(3)
 
 ### Directory & File check
 print('Checking File and Directories')
 if not os.path.exists('./output/'):
-    print('Error: There is no output directory!')
+    print('ERROR?: There is no output directory!')
     time.sleep(1)
     os.mkdir('./output/')
     print("...So I've made one JUST FOR YOU!!")
@@ -168,31 +171,33 @@ if not os.path.exists('./output/'):
 print('Output Directory - Checked\n')
 
 print('Checking Mask Settings')
-if wc_mask_enable:
-    if not os.path.exists('./mask/' + wc_mask_filename):
-        print('WARNING: There is no mask File(or Directory)!\nShould I run without mask file? (Y/N)')
-        reply = input()
-        if reply == 'Y' or reply == 'y':
-            wc_mask_enable = False
-            print('...OK!')
-        else:
-            print('Goodbye!')
-            time.sleep(3)
-            sys.exit()
+maskfile = cfg.get('Wordcloud', 'wc_mask_filename')
+if not maskfile:
+    if not os.path.exists('./mask/' + maskfile):
+        print('ERROR: There is no mask File(or Directory)!')
+        time.sleep(3)
+        sys.exit()
+    elif maskfile.split('.')[-1] not in ['jpg', 'jpeg', 'png']:
+        print('ERROR: Mask file extension does not match!')
+        time.sleep(3)
+        sys.exit()
     else:
         print('Mask File - Checked\n')
+else:
+    print('Not using Mask File - Checked')
 
-print('\nAll is well!\n\n')
-
+print('\nAll is well!')
+print(div)
 time.sleep(1)
 
+# <editor-fold desc="Scrapping part">
 ### Scrapping
 print('Now Scrapping Charts from Bugs.co.kr...')
 ## html scrap - 1. track list scrapping from bugs
 html_chart = urlopen("https://music.bugs.co.kr/chart")
 bsobj_chart = bs4.BeautifulSoup(html_chart, "html.parser")
 chart_filtered = bsobj_chart.tbody.findAll("tr")
-print('...Done\n')
+print('...Done!\n')
 
 track_num_list = []
 track_name_list = []
@@ -219,19 +224,29 @@ for trkid in track_num_list:
     time.sleep(3)
     print("#"+str(cnt)+". " + trkid + " completed.")
     cnt += 1
-print('...Done\n')
+print('...Done!')
+print(div)
+# </editor-fold>
 
 ### Analysing Lyrics
+print('Now analysing lyrics... (ko)')
 kk = Hannanum()
 
 # dic for korean only
 d_ko = Counter(kk.nouns(lyrics))
 l_ko = sorted(d_ko.items(), key=itemgetter(1), reverse=True)
-
-if output_csv: Output_csv_more_than(l_ko, csv_min, suffix='_ko')
-if output_wc: Output_wc(d_ko, suffix='_ko', mask_enable=wc_mask_enable, mask_filename=wc_mask_filename, bgcolor=wc_bgcolor, mask_recolor=wc_mask_recolor)
+print('...Done!\n')
+if output_csv:
+    print('Now printing into .csv... (ko)')
+    Output_csv_more_than(l_ko, csv_min, suffix='_ko')
+    print('...Done!\n')
+if output_wc:
+    print('Now printing into Wordcloud... (ko)')
+    Output_wc(d_ko, suffix='_ko')
+    print('...Done!\n')
 
 if not output_ko_only:
+    print('Now analysing lyrics... (all)')
     d_all = {}
     for s in kk.pos(lyrics):
         if s[1] == 'N' or s[1] == 'F':
@@ -240,14 +255,23 @@ if not output_ko_only:
             else:
                 d_all[s[0]] += 1
     l_all = sorted(d_all.items(), key=itemgetter(1), reverse=True)
-    if output_csv: Output_csv_more_than(l_all, csv_min, suffix='_all')
-    if output_wc: Output_wc(d_all, suffix='_all', mask_enable=wc_mask_enable, mask_filename=wc_mask_filename, bgcolor=wc_bgcolor, mask_recolor=wc_mask_recolor)
+    print('...Done!\n')
+    if output_csv:
+        print('Now printing into .csv... (all)')
+        Output_csv_more_than(l_all, csv_min, suffix='_all')
+        print('...Done!\n')
+    if output_wc:
+        print('Now printing into Wordcloud... (all)')
+        Output_wc(d_all, suffix='_all')
+        print('...Done!\n')
 
 if output_txt:
-    print('OUTPUT: Writing lyric text files...')
+    print('Now Writing lyric text files...')
     with open('./output/lyric_' + Timestamp() + '.txt', 'w', encoding='utf-8') as f:
         f.write(lyrics)
-    print('...Done')
+    print('...Done!\n')
 
-print('\nALL WORK IS DONE!')
+print('\nJOB FINISHED!')
+print(div)
+
 _ = input()
