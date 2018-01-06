@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Bugs lyric crawler 1.0a by HeHeHwang
+Bugs lyric crawler 1.0b by HeHeHwang
 update: 2018.01.06
 """
 import csv
 import os
 import sys
 import time
+import configparser as cp
 from collections import Counter
 from operator import itemgetter
 from urllib.request import urlopen
@@ -17,11 +18,6 @@ from PIL import Image
 from konlpy.tag import Hannanum
 from wordcloud import WordCloud, ImageColorGenerator
 
-### Initialize Golbal Variables
-wc_bgcolor = 'white'
-wc_mask_enable = False
-wc_mask_filename = 'mask.png'
-wc_mask_recolor = True
 ### Function Definition
 def Timestamp():
     nnnn = time.localtime()
@@ -40,22 +36,22 @@ def Output_csv_more_than(ll, n, suffix = ''):
             wr_csv.writerow(idx)
     output_file_csv.close()
 
-def Output_wc(word_dic, suffix = ''):
-    if wc_mask_enable:
-        mask_ext = wc_mask_filename.split('.')[-1]
-        maskk = np.array(Image.open('./mask/' + wc_mask_filename))
+def Output_wc(word_dic, suffix = '',bgcolor='white', mask_enable=True ,mask_filename='', mask_recolor=True):
+    if mask_enable:
+        mask_ext = mask_filename.split('.')[-1]
+        maskk = np.array(Image.open('./mask/' + mask_filename))
         maskk_color = ImageColorGenerator(maskk)
         wc = WordCloud(font_path='c:/Windows/Fonts/NanumMyeongjo.ttf',
-                       background_color=wc_bgcolor,
+                       background_color=bgcolor,
                        mask = maskk).generate_from_frequencies(word_dic)
         tp = Timestamp()
         wc.to_file('./output/data_out_' + tp + suffix + '_origin.' + mask_ext)
-        if wc_mask_recolor:
+        if mask_recolor:
             wc.recolor(color_func=maskk_color)
             wc.to_file('./output/data_out_' + tp + suffix + '_colored.' + mask_ext)
     else:
         wc = WordCloud(font_path='c:/Windows/Fonts/malgun.ttf',
-                       background_color=wc_bgcolor,
+                       background_color=bgcolor,
                        width=800,
                        height=400).generate_from_frequencies(word_dic)
         tp = Timestamp()
@@ -69,9 +65,7 @@ def Str_to_bool(ss):
 ### End of Functions
 
 ### Initialize Default Variables
-output_ko_only, output_csv, output_wc, output_txt = False, True, True, True
-csv_min = 3
-track_num_limit = None
+
 ### Importing Settings from setting.ini
 """
 setting.ini configuration:
@@ -90,60 +84,78 @@ csv_min = [int]
 - Wordcloud config (mask, recolor, bgcolor,...)
 wc_mask_enable
 wc_mask_filename
-_wc_mask_recolor
+wc_mask_recolor
 _wc_bgcolor
 """
 print('Checking settings.ini...')
 time.sleep(1)
-with open('settings.ini', 'r', encoding='utf-8') as f:
-    doc = f.readlines()
-    for d in doc:
-        d = d.strip()
-        if d != '' and d[0] != '#':
-            l = d.split('=')
-            attr = l[0].strip()
 
-            if attr == 'track_num_limit':
-                if l[1].strip() == '0':
-                    track_num_limit = None
-                    print('All tracks on chart will be collected')
-                else:
-                    track_num_limit = int(l[1].strip())
-                    print('Number of tracks to be collected: ' + str(track_num_limit))
+cfg = cp.ConfigParser()
+cfg.read('settings.ini')
+track_num_limit = cfg.getint('Parsing', 'track_num_limit')
+if track_num_limit == 0:
+    track_num_limit = None
+categ = 'Output Files'
+output_ko_only, output_csv, output_wc, output_txt = cfg.getboolean(categ, 'output_ko_only'),\
+                                                    cfg.getboolean(categ, 'output_csv'),\
+                                                    cfg.getboolean(categ, 'output_wc'),\
+                                                    cfg.getboolean(categ, 'output_txt')
+csv_min = cfg.getint('csv','csv_min')
+categ = 'Wordcloud'
+wc_bgcolor, wc_mask_enable, wc_mask_filename, wc_mask_recolor = cfg.get(categ, 'wc_bgcolor'), \
+                                                                cfg.getboolean(categ, 'wc_mask_enable'), \
+                                                                cfg.get(categ, 'wc_mask_filename'), \
+                                                                cfg.getboolean(categ, 'wc_mask_recolor')
 
-            elif attr == 'output_ko_only':
-                output_ko_only = Str_to_bool(l[1].strip())
-            elif attr == 'output_csv':
-                output_csv = Str_to_bool(l[1].strip())
-            elif attr == 'output_wc':
-                output_wc = Str_to_bool(l[1].strip())
-            elif attr == 'output_txt':
-                output_txt = Str_to_bool(l[1].strip())
-
-            elif attr == 'wc_bgcolor':
-                wc_bgcolor = l[1].strip()
-            elif attr == 'wc_mask_enable':
-                wc_mask_enable = Str_to_bool(l[1].strip())
-                print('Use Mask Image: ' + str(wc_mask_enable))
-            elif attr == 'wc_mask_filename':
-                if l[1].strip().split('.')[-1] in ['jpg', 'jpeg', 'png']:
-                    wc_mask_filename = l[1].strip()
-                    print('Name of Mask Image file: ' + str(wc_mask_filename))
-                else:
-                    print('Inappropriate Mask Image Extension!')
-                    time.sleep(3)
-                    sys.exit()
-            elif attr == 'wc_mask_recolor':
-                wc_mask_recolor = Str_to_bool(l[1].strip())
-
-            else:
-                continue
-        else:
-            continue
+# with open('settings.ini', 'r', encoding='utf-8') as f:
+#     doc = f.readlines()
+#     for d in doc:
+#         d = d.strip()
+#         if d != '' and d[0] != '#':
+#             l = d.split('=')
+#             attr = l[0].strip()
+#
+#             if attr == 'track_num_limit':
+#                 if l[1].strip() == '0':
+#                     track_num_limit = None
+#                     print('All tracks on chart will be collected')
+#                 else:
+#                     track_num_limit = int(l[1].strip())
+#                     print('Number of tracks to be collected: ' + str(track_num_limit))
+#
+#             elif attr == 'output_ko_only':
+#                 output_ko_only = Str_to_bool(l[1].strip())
+#             elif attr == 'output_csv':
+#                 output_csv = Str_to_bool(l[1].strip())
+#             elif attr == 'output_wc':
+#                 output_wc = Str_to_bool(l[1].strip())
+#             elif attr == 'output_txt':
+#                 output_txt = Str_to_bool(l[1].strip())
+#
+#             elif attr == 'wc_bgcolor':
+#                 wc_bgcolor = l[1].strip()
+#             elif attr == 'wc_mask_enable':
+#                 wc_mask_enable = Str_to_bool(l[1].strip())
+#                 print('Use Mask Image: ' + str(wc_mask_enable))
+#             elif attr == 'wc_mask_filename':
+#                 if l[1].strip().split('.')[-1] in ['jpg', 'jpeg', 'png']:
+#                     wc_mask_filename = l[1].strip()
+#                     print('Name of Mask Image file: ' + str(wc_mask_filename))
+#                 else:
+#                     print('Inappropriate Mask Image Extension!')
+#                     time.sleep(3)
+#                     sys.exit()
+#             elif attr == 'wc_mask_recolor':
+#                 wc_mask_recolor = Str_to_bool(l[1].strip())
+#
+#             else:
+#                 continue
+#         else:
+#             continue
 print('...Done')
 print('\n'+'='*40+'\n')
 
-time.sleep(5)
+time.sleep(3)
 
 ### Directory & File check
 print('Checking File and Directories')
@@ -217,7 +229,7 @@ d_ko = Counter(kk.nouns(lyrics))
 l_ko = sorted(d_ko.items(), key=itemgetter(1), reverse=True)
 
 if output_csv: Output_csv_more_than(l_ko, csv_min, suffix='_ko')
-if output_wc: Output_wc(d_ko, suffix='_ko')
+if output_wc: Output_wc(d_ko, suffix='_ko', mask_enable=wc_mask_enable, mask_filename=wc_mask_filename, bgcolor=wc_bgcolor, mask_recolor=wc_mask_recolor)
 
 if not output_ko_only:
     d_all = {}
@@ -229,7 +241,7 @@ if not output_ko_only:
                 d_all[s[0]] += 1
     l_all = sorted(d_all.items(), key=itemgetter(1), reverse=True)
     if output_csv: Output_csv_more_than(l_all, csv_min, suffix='_all')
-    if output_wc: Output_wc(d_all, suffix='_all')
+    if output_wc: Output_wc(d_all, suffix='_all', mask_enable=wc_mask_enable, mask_filename=wc_mask_filename, bgcolor=wc_bgcolor, mask_recolor=wc_mask_recolor)
 
 if output_txt:
     print('OUTPUT: Writing lyric text files...')
