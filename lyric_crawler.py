@@ -19,18 +19,13 @@ from wordcloud import WordCloud, ImageColorGenerator
 
 ### Golbal Variables
 mask_enable = False
-
+mask_filename = ''
 ### Function Definition
 def timestamp():
     nnnn = time.localtime()
     tp = "%d%02d%02d_%02d%02d_%02d" % (
     nnnn.tm_year, nnnn.tm_mon, nnnn.tm_mday, nnnn.tm_hour, nnnn.tm_min, nnnn.tm_sec)
     return tp
-
-def print_more_than(l, n):
-    for idx in l:
-        if idx[1] > n:
-            print(idx)
 
 def output_csv_more_than(l, n, suffix = ''):
     tp = timestamp()
@@ -45,15 +40,16 @@ def output_csv_more_than(l, n, suffix = ''):
 
 def output_wordcloud(word_dic, suffix = ''):
     if mask_enable:
-        maskk = np.array(Image.open('./mask/mask.png'))
+        mask_ext = mask_filename.split('.')[-1]
+        maskk = np.array(Image.open('./mask/' + mask_filename))
         maskk_color = ImageColorGenerator(maskk)
         wc = WordCloud(font_path='c:/Windows/Fonts/NanumMyeongjo.ttf',
                        background_color='white',
                        mask = maskk).generate_from_frequencies(word_dic)
         tp = timestamp()
-        wc.to_file('./output/data_out_' + tp + suffix + '_origin' +'.png')
+        wc.to_file('./output/data_out_' + tp + suffix + '_origin.' + mask_ext)
         wc.recolor(color_func=maskk_color)
-        wc.to_file('./output/data_out_' + tp + suffix + '_colored' + '.png')
+        wc.to_file('./output/data_out_' + tp + suffix + '_colored.' + mask_ext)
     else:
         wc = WordCloud(font_path='c:/Windows/Fonts/malgun.ttf',
                        width=800,
@@ -68,7 +64,7 @@ def output_wordcloud(word_dic, suffix = ''):
 setting.ini configuration:
 track_num_limit
 mask_enable
-- mask_filename
+mask_filename
 - wordcloud_bgcolor
 - output_korean_only
 """
@@ -85,6 +81,14 @@ with open('settings.ini', 'r', encoding='utf-8') as f:
         elif l[0].strip() == 'mask_enable':
             mask_enable = bool(l[1].strip())
             print('Use Mask Image or not: ' + str(mask_enable))
+        elif l[0].strip() == 'mask_filename':
+            if l[1].strip().split('.')[-1] in ['jpg', 'jpeg', 'png']:
+                mask_filename = l[1].strip()
+                print('Name of Mask Image file: ' + str(mask_filename))
+            else:
+                print('Inappropriate Mask Image Extension!')
+                time.sleep(3)
+                sys.exit()
         else:
             continue
 print('...Done')
@@ -104,7 +108,7 @@ print('Output Directory - Checked\n')
 
 print('Checking Mask Settings')
 if mask_enable:
-    if not os.path.exists('./mask/mask.png'):
+    if not os.path.exists('./mask/' + mask_filename):
         print('WARNING: There is no mask File(or Directory)!\nShould I run without mask file? (Y/N)')
         reply = input()
         if reply == 'Y' or reply == 'y':
@@ -117,7 +121,7 @@ if mask_enable:
     else:
         print('Mask File - Checked\n')
 
-print('..Done. All is well!\n\n')
+print('..Done. \nAll is well!\n\n')
 
 time.sleep(1)
 

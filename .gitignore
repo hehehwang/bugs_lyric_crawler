@@ -1,3 +1,4 @@
 _test/
 output/
-mask/alice.png
+mask/
+!mask/mask.png
